@@ -5,8 +5,10 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 
 import com.google.common.base.Preconditions;
+import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.google.gson.JsonNull;
 
 /**
  * Object representing a status.
@@ -96,8 +98,29 @@ public class Status {
     status.screenname = obj.get("user").getAsJsonObject().get("screen_name").getAsString();
     status.createdAt = obj.get("created_at").getAsString();
 
-    // TODO: We need to parse out the other fields.
-
+	if ( status.createdAt != null) {
+      try {
+        Date tmpdate;
+        tmpdate = dateFormat.parse(status.createdAt);
+        status.timestamp = tmpdate.getTime()/1000; // division by 1000 delete milliseconds of getTime()
+      } catch (ParseException e) {
+        status.timestamp = 0;
+      } 
+    }
+    
+    
+	if(obj.get("in_reply_to_status_id_str")==null)
+	    status.replyOf = obj.get("in_reply_to_status_id_str").getAsString();
+	if(obj.get("place")!=null){
+	    JsonObject place = obj.get("place").getAsJsonObject();
+	    status.location = place.get("full_name").getAsString();
+	    status.placeId = place.get("id").getAsString();
+	    
+	    
+	    JsonArray coordinates = place.get("bounding_box").getAsJsonObject().get("coordinates").getAsJsonArray().get(0).getAsJsonArray().get(0).getAsJsonArray();
+	    status.longitude = String.valueOf(coordinates.get(0).getAsFloat());
+	    status.latitude = String.valueOf(coordinates.get(1).getAsFloat());
+    }
     status.jsonObject = obj;
     status.jsonString = json;
 
