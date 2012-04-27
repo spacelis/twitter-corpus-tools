@@ -1,4 +1,4 @@
-This tool is originally implemented by Jimmy Lin for TREC 2011. Diego Caro made a patch to add some place related metadata in extractions of HTML output. 
+This toolkit was originally implemented by Jimmy Lin for TREC 2011. Diego Caro made a patch to add some place related metadata in extractions of HTML output. 
 
 twitter-corpus-tools
 ====================
