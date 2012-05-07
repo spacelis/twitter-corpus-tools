@@ -189,9 +189,9 @@ public class AsyncHtmlStatusBlockCrawler {
 
       attempts++;
       LOG.warn("Retrying: " + url + " attempt " + attempts);
+      retries.put(id, attempts);
       asyncHttpClient.prepareGet(url).execute(
           new TweetFetcherHandler(id, username, url, isRedirect));
-      retries.put(id, attempts);
     }
   }
 
