@@ -1,0 +1,92 @@
+package com.twitter.corpus.download;
+
+import java.io.FileOutputStream;
+import java.io.OutputStreamWriter;
+import java.util.zip.GZIPOutputStream;
+
+import org.apache.commons.cli.CommandLine;
+import org.apache.commons.cli.CommandLineParser;
+import org.apache.commons.cli.GnuParser;
+import org.apache.commons.cli.HelpFormatter;
+import org.apache.commons.cli.OptionBuilder;
+import org.apache.commons.cli.Options;
+import org.apache.commons.cli.ParseException;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.io.SequenceFile;
+
+import com.google.gson.Gson;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+import com.twitter.corpus.data.HtmlStatus;
+
+import edu.umd.cloud9.io.pair.PairOfLongString;
+
+public class ExtraceEmbeddedJsonHtmlStatusBlock {
+	private static final String INPUT_OPTION = "input";
+	private static final String OUTPUT_OPTION = "output";
+
+    private static final String JSON_START = "page(";
+    private static final String JSON_END = "});";
+	private static final JsonParser jsonparser = new JsonParser();
+	private static final Gson gson = new Gson();
+	/**
+	 * @param args
+	 */
+	public static void main(String[] args) throws Exception {
+		System.out.println("Debug");
+	    Options options = new Options();
+	    options.addOption(OptionBuilder.withArgName("path").hasArg()
+	        .withDescription("input crawl SequenceFile").create(INPUT_OPTION));
+	    options.addOption(OptionBuilder.withArgName("path").hasArg()
+	        .withDescription("output gzipped Json objects in lines").create(OUTPUT_OPTION));
+
+	    CommandLine cmdline = null;
+	    CommandLineParser parser = new GnuParser();
+	    try {
+	      cmdline = parser.parse(options, args);
+	    } catch (ParseException exp) {
+	      System.err.println("Error parsing command line: " + exp.getMessage());
+	      System.exit(-1);
+	    }
+
+	    if (!cmdline.hasOption(INPUT_OPTION) && !cmdline.hasOption(OUTPUT_OPTION)) {
+	      HelpFormatter formatter = new HelpFormatter();
+	      formatter.printHelp(DumpHtmlStatusCrawl.class.getName(), options);
+	      System.exit(-1);
+	    }
+
+	    Path inpath = new Path(cmdline.getOptionValue(INPUT_OPTION));
+	    Configuration conf = new Configuration();
+	    FileSystem fs = FileSystem.get(conf);
+	    SequenceFile.Reader reader = new SequenceFile.Reader(fs, inpath, conf);
+	    OutputStreamWriter writer =
+	    	      new OutputStreamWriter(new GZIPOutputStream(new FileOutputStream(cmdline.getOptionValue(OUTPUT_OPTION))));
+	    
+	    PairOfLongString key = new PairOfLongString();
+	    HtmlStatus value = new HtmlStatus();
+	    
+		String html; 
+		String json;
+		int st, end;
+	    while (reader.next(key, value)) {
+	    	html = value.getHtml();
+	    	st = html.indexOf(JSON_START) + JSON_START.length();
+	    	end = html.indexOf(JSON_END, st) + 1;
+	    	System.out.println(st + " " + end);
+	    	if(st<0 || end<0 || end-st<=0){
+	    		System.err.println(key.getValue());
+	    		continue;
+	    	}
+	    	json = html.substring(st, end).replaceAll("\\r|\\n", "");
+	    	JsonObject obj = (JsonObject) jsonparser.parse(json);
+	    	JsonObject status = obj.get("embedData").getAsJsonObject().get("status").getAsJsonObject();
+	    	writer.append(UnicodeEscapeTool.escape(gson.toJson(status)));
+	    	writer.append('\n');
+	    }
+	    reader.close();
+	    writer.close();
+	  }
+
+}
