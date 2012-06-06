@@ -47,7 +47,10 @@ public class HtmlStatus implements Writable {
     this.version = in.readByte();
     this.httpStatusCode = in.readInt();
     this.timestamp = in.readLong();
-    this.html = in.readUTF();
+//    this.html = in.readUTF(); // in accordance with the write() method
+    byte[] bytes = new byte[in.readInt()];
+    in.readFully(bytes);
+    this.html = new String(bytes, "utf-8");
   }
 
   /**
@@ -57,7 +60,10 @@ public class HtmlStatus implements Writable {
     out.writeByte(version);
     out.writeInt(httpStatusCode);
     out.writeLong(timestamp);
-    out.writeUTF(html);
+//    out.writeUTF(html); // there is a limitation of 64k bytes for writeUTF()
+    byte[] bytes = html.getBytes("utf-8");
+    out.writeInt(bytes.length);
+    out.write(bytes);
   }
 
   @Override
