@@ -7,17 +7,18 @@ import org.apache.commons.lang.StringEscapeUtils;
 
 import com.google.common.base.Preconditions;
 
+@Deprecated
 public class HtmlStatusExtractor {
-  private final String TWEET_BEGIN_DELIMITER = "<span class=\"entry-content\">";
-  private final String TWEET_END_DELIMITER = "<span class=\"meta entry-meta\"";
+  private final String TWEET_BEGIN_DELIMITER = "<p class=\"js-tweet-text tweet-text \">";
+  private final String TWEET_END_DELIMITER = "</p>";
 
   private final Pattern TIMESTAMP_PATTERN =
-      Pattern.compile("<span class=\"published timestamp\" data=\"\\{time:'([^']+)'\\}\">");
+      Pattern.compile("<span class=\"_timestamp js-short-timestamp \" data-time=\"(\\d+)\"");
  
   private final Pattern REPLYOF_PATTERN = 
-      Pattern.compile("<a href=\"http://twitter.com/[\\w]+/status/([^>\"]+)\">en respuesta a");
+      Pattern.compile("data-replied-tweet-id=\"(\\d+)\"");
   
-  private final Pattern LATLNG_PATTERN = Pattern.compile("\"latlng\":\\[([^\\]]+)\\]");
+  private final Pattern LATLNG_PATTERN = Pattern.compile("<a href=\"//maps.google.com/maps?q=([^\"])\"");
   
   private final Pattern PLACEID_PATTERN = Pattern.compile("\"place_id\":\"([^\"]+)\"");
   
@@ -30,9 +31,9 @@ public class HtmlStatusExtractor {
   public String extractTweet(String html) {
     Preconditions.checkNotNull(html);
     int begin = html.indexOf(TWEET_BEGIN_DELIMITER);
-    int end = html.indexOf(TWEET_END_DELIMITER);
+    int end = html.indexOf(TWEET_END_DELIMITER, begin);
 
-    if (begin == -1 || end == -1) {
+    if (begin < 0 || end < 0) {
       return null;
     }
 
