@@ -98,20 +98,18 @@ public class Status {
     status.screenname = obj.get("user").getAsJsonObject().get("screen_name").getAsString();
     status.createdAt = obj.get("created_at").getAsString();
 
-	if ( status.createdAt != null) {
-      try {
-        Date tmpdate;
-        tmpdate = dateFormat.parse(status.createdAt);
-        status.timestamp = tmpdate.getTime()/1000; // division by 1000 delete milliseconds of getTime()
-      } catch (ParseException e) {
-        status.timestamp = 0;
-      } 
-    }
+    try {
+      Date tmpdate;
+      tmpdate = dateFormat.parse(status.createdAt);
+      status.timestamp = tmpdate.getTime()/1000; // division by 1000 delete milliseconds of getTime()
+    } catch (ParseException e) {
+      status.timestamp = 0;
+    } 
     
     
-	if(obj.get("in_reply_to_status_id_str")==null)
-	    status.replyOf = obj.get("in_reply_to_status_id_str").getAsString();
-	if(obj.get("place")!=null){
+	if(!obj.get("in_reply_to_user_id_str").isJsonNull())
+	    status.replyOf = obj.get("in_reply_to_user_id_str").getAsString();
+	if(!obj.get("place").isJsonNull()){
 	    JsonObject place = obj.get("place").getAsJsonObject();
 	    status.location = place.get("full_name").getAsString();
 	    status.placeId = place.get("id").getAsString();
