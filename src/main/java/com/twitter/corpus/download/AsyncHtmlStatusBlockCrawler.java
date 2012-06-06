@@ -75,7 +75,7 @@ public class AsyncHtmlStatusBlockCrawler {
         long id = Long.parseLong(arr[0]);
         String username = arr[1];
         String url = getUrl(id, username);
-        asyncHttpClient.prepareGet(url).execute(new TweetFetcherHandler(id, username, url, false));
+        asyncHttpClient.prepareGet(url).addHeader("Accept-Language", "en-US,en;q=0.8").execute(new TweetFetcherHandler(id, username, url, false));
 
         cnt++;
 
