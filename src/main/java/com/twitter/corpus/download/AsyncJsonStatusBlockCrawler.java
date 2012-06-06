@@ -31,7 +31,7 @@ public class AsyncJsonStatusBlockCrawler {
   private static final Logger LOG = Logger.getLogger(AsyncJsonStatusBlockCrawler.class);
   private static final int MAX_RETRY_ATTEMPTS = 3;
 
-  public static final String DEFAULT_URL_PREFIX = "http://twitter.com";
+  public static final String DEFAULT_URL_PREFIX = "https://api.twitter.com/1/statuses/show.json?id=";
 
   // Change these values at your own risk.
   private static final int TWEET_BLOCK_SIZE = 500;
@@ -62,7 +62,7 @@ public class AsyncJsonStatusBlockCrawler {
 
   public static String getUrl(String prefix, long id, String username) {
     Preconditions.checkNotNull(username);
-    return String.format("%s/statuses/show/%s.json", prefix, id);
+    return String.format("%s%s&include_entities=true", prefix, id);
   }
 
   public void fetch() throws IOException {
@@ -146,7 +146,7 @@ public class AsyncJsonStatusBlockCrawler {
           Status.fromJson(s).getId();
         } catch (Exception e) {
           // If there's an exception, it means we got an incomplete JSON result. Try again.
-          LOG.warn("Incomplete JSON status: " + id);
+          LOG.warn("Incomplete JSON status: " + id, e);
           String url = getUrl(prefix, id, username);
           retry(url, id, username);
 
