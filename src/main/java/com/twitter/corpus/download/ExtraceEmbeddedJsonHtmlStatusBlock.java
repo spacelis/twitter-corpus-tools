@@ -74,9 +74,8 @@ public class ExtraceEmbeddedJsonHtmlStatusBlock {
 	    	html = value.getHtml();
 	    	st = html.indexOf(JSON_START) + JSON_START.length();
 	    	end = html.indexOf(JSON_END, st) + 1;
-	    	System.out.println(st + " " + end);
 	    	if(st<0 || end<0 || end-st<=0){
-	    		System.err.println(key.getValue());
+	    		System.err.println("[WARN] Failed extracting " + key.getLeftElement() + '\t' + key.getRightElement());
 	    		continue;
 	    	}
 	    	json = html.substring(st, end).replaceAll("\\r|\\n", "");

@@ -107,9 +107,9 @@ public class Status {
     } 
     
     
-	if(!obj.get("in_reply_to_user_id_str").isJsonNull())
+	if(obj.get("in_reply_to_user_id_str")!=null && !obj.get("in_reply_to_user_id_str").isJsonNull())
 	    status.replyOf = obj.get("in_reply_to_user_id_str").getAsString();
-	if(!obj.get("place").isJsonNull()){
+	if(obj.get("place")!=null && !obj.get("place").isJsonNull()){
 	    JsonObject place = obj.get("place").getAsJsonObject();
 	    status.location = place.get("full_name").getAsString();
 	    status.placeId = place.get("id").getAsString();
