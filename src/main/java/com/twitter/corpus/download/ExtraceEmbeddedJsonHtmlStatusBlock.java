@@ -72,13 +72,13 @@ public class ExtraceEmbeddedJsonHtmlStatusBlock {
 		int st, end;
 	    while (reader.next(key, value)) {
 	    	html = value.getHtml();
-	    	st = html.indexOf(JSON_START) + JSON_START.length();
-	    	end = html.indexOf(JSON_END, st) + 1;
+	    	st = html.indexOf(JSON_START) ;
+	    	end = html.indexOf(JSON_END, st + JSON_START.length());
 	    	if(st<0 || end<0 || end-st<=0){
-	    		System.err.println("[WARN] Failed extracting " + key.getLeftElement() + '\t' + key.getRightElement());
+	    		System.err.println(String.format("[WARN] Failed extracting [HTTP Code: %d] %d %s", value.getHttpStatusCode(), key.getLeftElement(), key.getRightElement()));
 	    		continue;
 	    	}
-	    	json = html.substring(st, end).replaceAll("\\r|\\n", "");
+	    	json = html.substring(st + JSON_START.length(), end + 1).replaceAll("\\r|\\n", "");
 	    	JsonObject obj = (JsonObject) jsonparser.parse(json);
 	    	JsonObject status = obj.get("embedData").getAsJsonObject().get("status").getAsJsonObject();
 	    	writer.append(UnicodeEscapeTool.escape(gson.toJson(status)));
