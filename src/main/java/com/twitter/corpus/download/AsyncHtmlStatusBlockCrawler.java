@@ -65,6 +65,8 @@ public class AsyncHtmlStatusBlockCrawler {
   public void fetch() throws IOException {
     long start = System.currentTimeMillis();
     LOG.info("Processing " + file);
+    LOG.info("MaxConnectionPerHost: " + asyncHttpClient.getConfig().getMaxConnectionPerHost());
+    LOG.info("MaxTotalConnection: " + asyncHttpClient.getConfig().getMaxTotalConnections());
 
     int cnt = 0;
     try {
@@ -169,19 +171,37 @@ public class AsyncHtmlStatusBlockCrawler {
       }
     }
 
-    private synchronized void retry() throws Exception {
+    // Synchronized at subtle parts to improve speed
+    // TODO The asynchronized crawling still blocks when some connections times out. Need to be check.
+    private synchronized boolean retriesContainsID(long id){
+      return retries.containsKey(id);
+    }
+
+    private synchronized int retriesGetID(long id){
+      return retries.get(id);
+    }
+
+    private synchronized int retriesPutID(long id, int val){
+      return retries.put(id, val);
+    }
+
+    private void retry() throws Exception {
+      if (url.contains("protected_redirect=true")) {
+        LOG.warn("Abandoning: " + url + " becuase the account is protected.");
+        return;
+      }
       // Wait before retrying.
       Thread.sleep(1000);
 
-      if (!retries.containsKey(id)) {
-        retries.put(id, 1);
+      if (!retriesContainsID(id)) {
+        retriesPutID(id, 1);
         LOG.warn("Retrying: " + url + " attempt 1");
         asyncHttpClient.prepareGet(url).execute(
-            new TweetFetcherHandler(id, username, url, isRedirect));
+          new TweetFetcherHandler(id, username, url, isRedirect));
         return;
       }
 
-      int attempts = retries.get(id);
+      int attempts = retriesGetID(id);
       if (attempts > MAX_RETRY_ATTEMPTS) {
         LOG.warn("Abandoning: " + url + " after max retry attempts");
         return;
@@ -189,9 +209,9 @@ public class AsyncHtmlStatusBlockCrawler {
 
       attempts++;
       LOG.warn("Retrying: " + url + " attempt " + attempts);
-      retries.put(id, attempts);
+      retriesPutID(id, attempts);
       asyncHttpClient.prepareGet(url).execute(
-          new TweetFetcherHandler(id, username, url, isRedirect));
+        new TweetFetcherHandler(id, username, url, isRedirect));
     }
   }
 
