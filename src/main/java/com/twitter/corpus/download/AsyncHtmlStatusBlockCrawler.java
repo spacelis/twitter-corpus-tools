@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.Map;
 import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
@@ -24,7 +25,9 @@ import org.apache.log4j.Logger;
 import com.google.common.base.Preconditions;
 import com.ning.http.client.AsyncCompletionHandler;
 import com.ning.http.client.AsyncHttpClient;
+import com.ning.http.client.AsyncHttpClientConfig;
 import com.ning.http.client.Response;
+import com.ning.http.client.extra.ThrottleRequestFilter;
 import com.twitter.corpus.data.HtmlStatus;
 import com.twitter.corpus.demo.ReadStatuses;
 
@@ -38,6 +41,26 @@ public class AsyncHtmlStatusBlockCrawler {
   private final File file;
   private final String output;
   private final AsyncHttpClient asyncHttpClient;
+  private SyncCounter currentProcessing;
+  
+  private static class SyncCounter {
+	  private int _counter = 0;
+	  public SyncCounter(int initValue){
+		  _counter = initValue;
+	  }
+	  
+	  public synchronized int get(){
+		  return _counter;
+	  }
+	  
+	  public synchronized int increase(){
+		  return _counter++;
+	  }
+	  
+	  public synchronized int decrease(){
+		  return _counter--;
+	  }
+  }
 
   // Storing the number of retries.
   private final ConcurrentSkipListMap<Long, Integer> retries = new ConcurrentSkipListMap<Long, Integer>();
@@ -54,7 +77,9 @@ public class AsyncHtmlStatusBlockCrawler {
       throw new IOException(file + " does not exist!");
     }
 
-    this.asyncHttpClient = new AsyncHttpClient();
+    AsyncHttpClientConfig config = new AsyncHttpClientConfig.Builder().addRequestFilter(new ThrottleRequestFilter(100)).setConnectionTimeoutInMs(10000).build();
+    this.asyncHttpClient = new AsyncHttpClient(config);
+    currentProcessing = new SyncCounter(0);
   }
 
   public static String getUrl(long id, String username) {
@@ -65,8 +90,6 @@ public class AsyncHtmlStatusBlockCrawler {
   public void fetch() throws IOException {
     long start = System.currentTimeMillis();
     LOG.info("Processing " + file);
-    LOG.info("MaxConnectionPerHost: " + asyncHttpClient.getConfig().getMaxConnectionPerHost());
-    LOG.info("MaxTotalConnection: " + asyncHttpClient.getConfig().getMaxTotalConnections());
 
     int cnt = 0;
     try {
@@ -77,12 +100,13 @@ public class AsyncHtmlStatusBlockCrawler {
         long id = Long.parseLong(arr[0]);
         String username = arr[1];
         String url = getUrl(id, username);
+        currentProcessing.increase();
         asyncHttpClient.prepareGet(url).addHeader("Accept-Language", "en-US,en;q=0.8").execute(new TweetFetcherHandler(id, username, url, false));
 
         cnt++;
 
         if (cnt % TWEET_BLOCK_SIZE == 0) {
-          LOG.info(cnt + " requests submitted");
+          LOG.info(cnt + " requests submitted " + currentProcessing.get() + " in connections");
         }
       }
     } catch (IOException e) {
@@ -90,7 +114,9 @@ public class AsyncHtmlStatusBlockCrawler {
     }
 
     // Wait for the last requests to complete.
+//    while(currentProcessing.get()>0) there always some requests not counted in, weird.
     try {
+      LOG.info("Waiting " + currentProcessing.get() + " requests to finish!");
       Thread.sleep(10000);
     } catch (Exception e) {
       e.printStackTrace();
@@ -138,16 +164,21 @@ public class AsyncHtmlStatusBlockCrawler {
       if (response.getStatusCode() >= 500) {
         // Retry by submitting another request.
         LOG.warn("Error status " + response.getStatusCode() + ": " + url);
-        retry();
+//        retry();
 
+        currentProcessing.decrease();
         return response;
       }
 
-      if (response.getStatusCode() == 302) {
+      else if (response.getStatusCode() == 302) {
         String redirect = response.getHeader("Location");
-
-        asyncHttpClient.prepareGet(redirect)
-          .execute(new TweetFetcherHandler(id, username, redirect, true));
+        if (redirect.contains("protected_redirect=true")) {
+          LOG.warn("Abandoning: " + url + " becuase the account is protected.");
+          currentProcessing.decrease();
+        }
+        else
+          asyncHttpClient.prepareGet(redirect)
+            .execute(new TweetFetcherHandler(id, username, redirect, true));
 
         return response;
       }
@@ -156,6 +187,7 @@ public class AsyncHtmlStatusBlockCrawler {
           new HtmlStatus((isRedirect ? 302 : response.getStatusCode()), System.currentTimeMillis(),
               response.getResponseBody("UTF-8")));
 
+      currentProcessing.decrease();
       return response;
     }
 
@@ -164,15 +196,16 @@ public class AsyncHtmlStatusBlockCrawler {
       // Retry by submitting another request.
 
       LOG.warn("Error: " + t);
+//      t.printStackTrace();
       try {
         retry();
       } catch (Exception e) {
         // Ignore silently.
+        currentProcessing.decrease();
       }
     }
 
     // Synchronized at subtle parts to improve speed
-    // TODO The asynchronized crawling still blocks when some connections times out. Need to be check.
     private synchronized boolean retriesContainsID(long id){
       return retries.containsKey(id);
     }
@@ -181,15 +214,11 @@ public class AsyncHtmlStatusBlockCrawler {
       return retries.get(id);
     }
 
-    private synchronized int retriesPutID(long id, int val){
-      return retries.put(id, val);
+    private synchronized void retriesPutID(long id, int val){
+      retries.put(id, val);
     }
 
     private void retry() throws Exception {
-      if (url.contains("protected_redirect=true")) {
-        LOG.warn("Abandoning: " + url + " becuase the account is protected.");
-        return;
-      }
       // Wait before retrying.
       Thread.sleep(1000);
 
@@ -204,6 +233,7 @@ public class AsyncHtmlStatusBlockCrawler {
       int attempts = retriesGetID(id);
       if (attempts > MAX_RETRY_ATTEMPTS) {
         LOG.warn("Abandoning: " + url + " after max retry attempts");
+        currentProcessing.decrease();
         return;
       }
 
