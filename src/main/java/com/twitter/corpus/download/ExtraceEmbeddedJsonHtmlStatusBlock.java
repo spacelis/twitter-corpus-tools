@@ -35,7 +35,6 @@ public class ExtraceEmbeddedJsonHtmlStatusBlock {
 	 * @param args
 	 */
 	public static void main(String[] args) throws Exception {
-		System.out.println("Debug");
 	    Options options = new Options();
 	    options.addOption(OptionBuilder.withArgName("path").hasArg()
 	        .withDescription("input crawl SequenceFile").create(INPUT_OPTION));
