@@ -80,6 +80,11 @@ public class ExtraceEmbeddedJsonHtmlStatusBlock {
 	    	json = html.substring(st + JSON_START.length(), end + 1).replaceAll("\\r|\\n", "");
 	    	JsonObject obj = (JsonObject) jsonparser.parse(json);
 	    	JsonObject status = obj.get("embedData").getAsJsonObject().get("status").getAsJsonObject();
+	    	status.remove("place");
+	    	status.remove("coordinates");
+	    	status.remove("geo");
+	    	status.remove("entity_linkified_text");
+	    	status.addProperty("text", status.get("text").getAsString().replaceAll("I'm at .* http://4sq\\.com\\S*", "").replaceAll("\\(@ .* http://4sq\\.com\\S*", ""));
 	    	writer.append(UnicodeEscapeTool.escape(gson.toJson(status)));
 	    	writer.append('\n');
 	    }

@@ -9,7 +9,7 @@ if [ ! -f bin/crawl.sh ]; then
   exit 1
 fi
 
-for f in $1/*.txt; do
+for f in $1/*.test; do
   bin/crawl.sh $f
   bin/extract.sh $f.seq
 done
