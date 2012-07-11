@@ -84,7 +84,10 @@ public class ExtraceEmbeddedJsonHtmlStatusBlock {
 	    	status.remove("coordinates");
 	    	status.remove("geo");
 	    	status.remove("entity_linkified_text");
-	    	status.addProperty("text", status.get("text").getAsString().replaceAll("I'm at .* http://4sq\\.com\\S*", "").replaceAll("\\(@ .* http://4sq\\.com\\S*", ""));
+	    	String modified_text = status.get("text").getAsString().replaceAll("I'm at .* http://4sq\\.com\\S*", "").replaceAll("\\(@ .* http://4sq\\.com\\S*", "");
+	    	if(modified_text.trim().length()<=0)
+	    		continue;
+	    	status.addProperty("text", modified_text);
 	    	writer.append(UnicodeEscapeTool.escape(gson.toJson(status)));
 	    	writer.append('\n');
 	    }
